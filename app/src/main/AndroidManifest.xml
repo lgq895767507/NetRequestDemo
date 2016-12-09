@@ -22,7 +22,8 @@
         <activity android:name=".BaseActivity" />
         <activity android:name=".ContentsAct" />
         <activity android:name=".VolleyAct" />
-        <activity android:name=".RetrofitAct"></activity>
+        <activity android:name=".RetrofitAct" />
+        <activity android:name=".NoHttpAct"></activity>
     </application>
 
 </manifest>

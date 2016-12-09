@@ -203,3 +203,130 @@ public interface RetrofitService {
 * 操作上明显是比volley和okhttp简单多了。
 
 > 1.retrofit-2.1.0.jar大小为86.2K。
+
+
+----------------------
+
+### NoHttp的使用
+##### NoHttp在github上的最新版本是1.1.0，它的描述是这样的：支持与RxJava完美结合、支持一句话切换底层为OkHttp，支持缓存数据到数据库或SD卡，支持请求Restful风格的接口，比Retrofit更简单易用。
+
+* 不言而喻这是明着叫板Retrofit，那么我们就看看他是不是像他说的那样厉害。
+
+
+> 
+* 动态配置底层框架为OkHttp、HttpURLConnection
+* 与RxJava完美结合，支持异步请求、支持同步请求
+* 多文件上传，支持大文件上传，表单提交数据
+* 文件下载、上传下载、上传和下载的进度回调、错误回调
+* 支持Json、xml、Map、List的提交
+* 完美的Http缓存模式，可指定缓存到数据库、SD卡，缓存数据已安全加密
+* 在6.0以上手机缓存到SD卡时需要请求运行时权限：AndPermission
+* 自定义Request，直接请求JsonObject、JavaBean等
+* Cookie的自动维持，App重启、关开机后还持续维持
+* http 301 302 303 304 307重定向，支持多层嵌套重定向
+* Https、自签名网站Https的访问、支持双向验证
+* 失败重试机制，支持请求优先级
+* GET、POST、PUT、PATCH、HEAD、DELETE、OPTIONS、TRACE等请求协议
+* 用队列保存请求，平均分配多线程的资源，支持多个请求并发
+* 支持取消某个请求、取消指定多个请求、取消所有请求
+
+
+* 感觉很厉害的样子啊~好，是骡子是马，拉出去溜溜。实战感受下才是硬道理。
+#####配置gradle
+`
+compile 'com.yolanda.nohttp:nohttp:1.1.0'
+`
+
+* 上文说的动态配置okhttp,确实是这样的。只需要在gradle中配置下面这句：
+
+`
+compile 'com.yanzhenjie.nohttp:okhttp:1.1.0'
+`
+
+* NoHttp的网络层是通过NetworkExecutor接口来配置的，切换以okhttp为网络层需要在初始化的时候这样配置一下关于网络的：
+```java
+NoHttp.initialize(this,new NoHttp.Config()
+		.setConnectTimeout(30*1000)
+		.setReadTimeout(30*1000)
+        .setNetworkExecutor(new OkHttpNetworkExecutor()));//切换okhttp作为网络层
+```
+##### 到底该用OKHttp还是URLConnection,下面做个解释：
+> 
+	* HttpURLConnection是Android系统自带的api，无需依赖其它任何第三方库。
+	* HttpURLConnection
+	* 不用依赖第三方底层框架，相应的apk的体积也不会增大。在5.0以下的系统中DELETE请求方法不允许发送body，因此会在http协议的实现上做一些妥协。
+	* 在Android4.4以后HttpURLConnection的底层使用OkHttp2.7.5来实现。
+	* OkHttp是square开发的第三方框架（非系统集成），相对高效、稳定。
+	* 使用OkHttp的好处是第三方框架有bug可以改代码，不像系统集成的api没办法改动。
+
+######  以上是参考nohttp作者说的依据
+
+-------------------------------
+
+##### 步入正题：
+
+* NoHttp需要初始化，可选择自定义。还有的话有点类似Volley，拥有一个全局的单例请求队列。
+
+```java
+//初始化noHttp请求队列
+noRequest = NoHttp.newRequestQueue();
+```
+
+* 准备工作完成后，我们请求一个json数据，我们希望的是返回javaBean对象，所有我们需要继承RestRequest类来实现，最后返回的是javaBean对象。
+
+```java
+public class NewsJsonRequest extends RestRequest<NewsInfo> {
+
+    private Class<NewsInfo> newsInfo;
+
+
+    public NewsJsonRequest(String url, Class<NewsInfo> newsInfo) {
+        this(url, RequestMethod.GET, newsInfo);
+    }
+
+    public NewsJsonRequest(String url, RequestMethod requestMethod,Class<NewsInfo> newsInfo) {
+        super(url, requestMethod);
+        this.newsInfo = newsInfo;
+    }
+
+    @Override
+    public NewsInfo parseResponse(Headers responseHeaders, byte[] responseBody) throws Throwable {
+        String response = StringRequest.parseResponseString(responseHeaders,responseBody);
+        return  new Gson().fromJson(response,NewsInfo.class);
+    }
+```
+
+* 创建请求对象：
+	* StringRequest的话就是使用createStringRequest()方法
+	```java
+	Request<String> request = NoHttp.createStringRequest(url, RequestMethod.GET);
+	```
+	* 如果是继承RestRequest自定义的，需要new出来
+	```java
+	 //创建请求对象
+        NewsJsonRequest newsJsonRequest = new NewsJsonRequest(uri, NewsInfo.class);
+	```
+
+* 调用同步请求，直接拿到请求结果。
+`Response<String> response = NoHttp.startRequestSync(request);`
+*  NoHttp的核心是同步请求,但是同步请求，不能在主线程中进行。可以通过queue.add()实现异步请求，queue.add(what, request, listener)中的what可以区分listener返回的回调结果。可以理解为handle里面的what的意思。
+
+##### 请求方式
+* 默认是get的请求方式。可以直接传url过去，或者使用add()方法可动态添加参数。例如：http://api.nohttp.net/upload?id=123&name=yanzhenjie&desc=abc
+```java
+String url = "http://api.nohttp.net/upload";
+
+	Request<String> request = new StringRequest(url);
+	request.add("id", 123)
+    .add("name",  "yanzhenjie")
+    .add("desc", "abc");
+	`
+```
+* 这个就比retrofit简单的多了，retrofit需要在接口中@Query()多个参数，而且retrofit传递的url最后要以“/”结束。
+* 最后在onDestroy()中取消请求的对象。
+
+> nohttp-1.1.0.jar大小为159K。
+
+
+	
+

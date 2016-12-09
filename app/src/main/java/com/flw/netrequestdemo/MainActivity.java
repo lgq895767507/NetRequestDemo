@@ -1,7 +1,6 @@
 package com.flw.netrequestdemo;
 
 import android.content.Intent;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.widget.Button;
 
@@ -17,6 +16,8 @@ public class MainActivity extends BaseActivity {
     Button volley;
     @BindView(R.id.retrofit)
     Button retrofit;
+    @BindView(R.id.nohttp)
+    Button nohttp;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,5 +43,12 @@ public class MainActivity extends BaseActivity {
         Intent intent = new Intent(this,RetrofitAct.class);
         startActivity(intent);
     }
+
+    @OnClick(R.id.nohttp)
+    void IntentNoHttp(){
+        Intent intent = new Intent(this,NoHttpAct.class);
+        startActivity(intent);
+    }
+
 
 }
